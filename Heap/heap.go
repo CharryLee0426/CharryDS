@@ -96,7 +96,7 @@ func (h *Heap) Pop() Element {
 	i := 1
 	for i*2 <= h.realSize {
 		if h.elements[i] > h.elements[i*2] || 
-		   (h.elements[i] > h.elements[i*2+1] && i*2+1 <= h.realSize) {
+		   (i*2+1 <= h.realSize && h.elements[i] > h.elements[i*2+1]) {
 			if h.elements[i*2] < h.elements[i*2+1] || i*2+1 > h.realSize {
 				h.elements[i], h.elements[i*2] = h.elements[i*2], h.elements[i]
 				i *= 2
@@ -118,7 +118,7 @@ func heaptify(elements []Element, realSize int) {
 		// it assumed that it's not a leaf node
 		for i*2 <= realSize {
 			if elements[i] > elements[i*2] || 
-			   (elements[i] > elements[i*2+1] && i*2+1 <= realSize) {
+			   (i*2+1 <= realSize && elements[i] > elements[i*2+1]) {
 				if elements[i*2] < elements[i*2+1] || i*2+1 > realSize {
 					elements[i], elements[i*2] = elements[i*2], elements[i]
 					i *= 2
