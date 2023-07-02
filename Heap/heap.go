@@ -24,12 +24,34 @@ func New(maxSize int) *Heap {
 	}
 }
 
+func NewFromArray(ints []Element, maxSize int) *Heap {
+	if len(ints) > maxSize {
+		fmt.Println("The size of the array is larger than the maxSize!")
+		return nil
+	}
+
+	h := &Heap{
+		elements: make([]Element, maxSize+1),
+		maxSize: maxSize,
+		realSize: len(ints),
+	}
+
+	for i := 1; i<= len(ints); i++ {
+		h.elements[i] = ints[i-1]
+	}
+
+	heaptify(h.elements, h.realSize)
+
+	return h
+}
+
 // get the size of this heap right now
 func (h *Heap) Size() int {
 	return h.realSize
 }
 
 // Insert an element into the heap
+// time complexity: O(NlogN)
 func (h *Heap) Insert(e Element) {
 	if h.realSize >= h.maxSize {
 		fmt.Println("The heap is full!")
@@ -88,6 +110,27 @@ func (h *Heap) Pop() Element {
 	}
 
 	return result
+}
+
+// heaptify an array to a min heap
+func heaptify(elements []Element, realSize int) {
+	for i := realSize/2; i >= 1; i-- {
+		// it assumed that it's not a leaf node
+		for i*2 <= realSize {
+			if elements[i] > elements[i*2] || 
+			   (elements[i] > elements[i*2+1] && i*2+1 <= realSize) {
+				if elements[i*2] < elements[i*2+1] || i*2+1 > realSize {
+					elements[i], elements[i*2] = elements[i*2], elements[i]
+					i *= 2
+				} else {
+					elements[i], elements[i*2+1] = elements[i*2+1], elements[i]
+					i = i*2 + 1
+				}
+			} else {
+				break
+			}
+		}
+	}
 }
 
 // print the heap like a tree

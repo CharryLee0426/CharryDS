@@ -3,11 +3,11 @@ package heap
 import "testing"
 
 func TestInsert(t *testing.T) {
-	inputs := []int{1, 2, 3, 4, 5, 6, 7}
+	inputs := []Element{1, 2, 3, 4, 5, 6, 7}
 
 	h := New(7)
 	for _, input := range inputs {
-		h.Insert(Element(input))
+		h.Insert(input)
 	}
 
 	// check the heap
@@ -19,11 +19,11 @@ func TestInsert(t *testing.T) {
 }
 
 func TestPeek(t *testing.T) {
-	inputs := []int{7, 6, 5, 4, 3, 2, 1}
+	inputs := []Element{7, 6, 5, 4, 3, 2, 1}
 
 	h := New(7)
 	for _, input := range inputs {
-		h.Insert(Element(input))
+		h.Insert(input)
 	}
 
 	if h.Peek() != 1 {
@@ -32,13 +32,26 @@ func TestPeek(t *testing.T) {
 }
 
 func TestPop(t *testing.T) {
-	inputs := []int{7, 5, 6, 2, 3, 1, 4}
-	expected := []int{1, 2, 3, 4, 5, 6, 7}
+	inputs := []Element{7, 5, 6, 2, 3, 1, 4}
+	expected := []Element{1, 2, 3, 4, 5, 6, 7}
 
 	h := New(7)
 	for _, input := range inputs {
-		h.Insert(Element(input))
+		h.Insert(input)
 	}
+
+	for i := 1; i <= 7; i++ {
+		if h.Pop() != Element(expected[i-1]) {
+			t.Errorf("h.Pop() = %d, want %d", h.Pop(), i)
+		}
+	}
+}
+
+func TestHeaptify(t *testing.T) {
+	inputs := []Element{7, 5, 6, 2, 3, 1, 4}
+	expected := []Element{1, 2, 3, 4, 5, 6, 7}
+
+	h := NewFromArray(inputs, 7)
 
 	for i := 1; i <= 7; i++ {
 		if h.Pop() != Element(expected[i-1]) {
