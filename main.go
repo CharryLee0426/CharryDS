@@ -1,24 +1,26 @@
 package main
 
 import (
-	heap "charryds/Heap"
-	"fmt"
+	// heap "charryds/Heap"
 )
 
 
 
 func main() {
-	inputs := []int{7, 6, 5, 4, 3, 2, 1}
+	// this is a test main function
+	// you can test these data structures here
 
-	h := heap.New(7)
+	// example of using heap
 
-	for _, input := range inputs {
-		h.Insert(heap.Element(input))
-	}
+	// inputs := []heap.Element{2, 1, 3, 45, 22, 134, 2333}
+	// h := heap.New(len(inputs))
+	// for i := 0; i < len(inputs); i++ {
+	// 	h.Insert(inputs[i])
+	// }
+	// h.Print()
 
-	for i := 1; i <= 7; i++ {
-		h.Print()
-		min := h.Pop()
-		fmt.Printf("The min top is %d\n", min)
-	}
+	// result:
+	// 	 1 
+	//  2 3 
+	// 45 22 134 2333
 }
