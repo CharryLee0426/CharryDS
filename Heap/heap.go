@@ -97,7 +97,7 @@ func (h *Heap) Pop() Element {
 	for i*2 <= h.realSize {
 		if h.elements[i] > h.elements[i*2] || 
 		   (i*2+1 <= h.realSize && h.elements[i] > h.elements[i*2+1]) {
-			if h.elements[i*2] < h.elements[i*2+1] || i*2+1 > h.realSize {
+			if i*2+1 > h.realSize || h.elements[i*2] < h.elements[i*2+1] {
 				h.elements[i], h.elements[i*2] = h.elements[i*2], h.elements[i]
 				i *= 2
 			} else {
@@ -119,7 +119,7 @@ func heaptify(elements []Element, realSize int) {
 		for i*2 <= realSize {
 			if elements[i] > elements[i*2] || 
 			   (i*2+1 <= realSize && elements[i] > elements[i*2+1]) {
-				if elements[i*2] < elements[i*2+1] || i*2+1 > realSize {
+				if i*2+1 > realSize || elements[i*2] < elements[i*2+1] {
 					elements[i], elements[i*2] = elements[i*2], elements[i]
 					i *= 2
 				} else {
