@@ -1,6 +1,10 @@
 package sort
 
-import "testing"
+import (
+	"math/rand"
+	"sort"
+	"testing"
+)
 
 func TestBubbleSort(t *testing.T) {
 	inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
@@ -77,6 +81,22 @@ func TestMaxHeapSort(t *testing.T) {
 	}
 }
 
+func TestQuickSort(t *testing.T) {
+	inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+	expected := [...]int{-5467984, -784, 0, 0, 42, 59, 74, 238, 905, 959, 7586, 7586, 9845}
+
+	s := NewSort(inputs[:])
+
+	s.QuickSort()
+
+	for i := 0; i < s.Len(); i++ {
+		if s.data[i] != expected[i] {
+			t.Errorf("QuickSort() = %d; expected %d", s.data[i], expected[i])
+		}
+	}
+}
+
+// 36x Shuffled data
 func BenchmarkBubbleSort(b *testing.B) {
 	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
 
@@ -92,7 +112,11 @@ func BenchmarkBubbleSort(b *testing.B) {
 		b.StartTimer()
 		s.BubbleSort()
 		b.StopTimer()
-		s.data = data[:]
+
+		// reset data to unsorted state
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
 	}
 }
 
@@ -111,7 +135,9 @@ func BenchmarkSelectionSort(b *testing.B) {
 		b.StartTimer()
 		s.SelectionSort()
 		b.StopTimer()
-		s.data = data[:]
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
 	}
 }
 
@@ -130,7 +156,9 @@ func BenchmarkInsertionSort(b *testing.B) {
 		b.StartTimer()
 		s.InsertionSort()
 		b.StopTimer()
-		s.data = data[:]
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
 	}
 }
 
@@ -149,7 +177,9 @@ func BenchmarkMinHeap(b *testing.B) {
 		b.StartTimer()
 		s.MinHeapSort()
 		b.StopTimer()
-		s.data = data[:]
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
 	}
 }
 
@@ -168,6 +198,632 @@ func BenchmarkMaxHeap(b *testing.B) {
 		b.StartTimer()
 		s.MaxHeapSort()
 		b.StopTimer()
-		s.data = data[:]
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
+	}
+}
+
+func BenchmarkQuickSort(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i ^ 0x2cc
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.QuickSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
+	}
+}
+
+func BenchmarkPdqsort(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i ^ 0x2cc
+	}
+
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		sort.Ints(s.data)
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
+	}
+}
+
+// Sorted data
+func BenchmarkBubbleSortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.BubbleSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkSelectionSortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.SelectionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkInsertionSortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.InsertionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkMinHeapSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MinHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkMaxHeapSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MaxHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkQuickSortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.QuickSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkPdqsortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		sort.Ints(s.data)
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+// Reversed data
+func BenchmarkBubbleSortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.BubbleSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkSelectionSortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.SelectionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkInsertionSortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.InsertionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkMinHeapReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MinHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkMaxHeapReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MaxHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkQuickSortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.QuickSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkPdqsortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		sort.Ints(s.data)
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+// Mod8 data
+func BenchmarkBubbleSortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.BubbleSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkSelectionSortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.SelectionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkInsertionSortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.InsertionSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkMinHeapMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MinHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkMaxHeapMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MaxHeapSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkQuickSortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.QuickSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkPdqsortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		sort.Ints(s.data)
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+// Random data
+func BenchmarkBubbleSortRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.BubbleSort()
+		b.StopTimer()
+		
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkSelectionSortRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.SelectionSort()
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkInsertionSortRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.InsertionSort()
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkMinHeapRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MinHeapSort()
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkMaxHeapRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.MaxHeapSort()
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkQuickSortRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.QuickSort()
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkPdqsortRandom(b *testing.B) {
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+		data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		sort.Ints(s.data)
+		b.StopTimer()
+
+		rand.Shuffle(len(s.data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
 	}
 }
