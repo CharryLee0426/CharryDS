@@ -250,4 +250,53 @@ func quickSort(nums []int, beginIndex, endIndex int) {
     }
 }
 
-// TODO: Quick Sort, Merge Sort
+func (s *Sort) MergeSort() {
+	mergeSort(s.data, 0, s.len-1)
+	s.sortedData = s.data
+}
+
+func mergeSort(nums []int, beginIndex, endIndex int) {
+	if beginIndex < endIndex {
+		mid := (beginIndex + endIndex) / 2
+		mergeSort(nums, beginIndex, mid)
+		mergeSort(nums, mid+1, endIndex)
+		merge(nums, beginIndex, mid, endIndex)
+	}
+}
+
+// merge two sorted array to one big sorted array
+func merge(nums []int, beginIndex, mid, endIndex int) {
+	tmp := make([]int, endIndex-beginIndex+1)
+	i, j, k := beginIndex, mid+1, 0
+
+	for i <= mid && j <= endIndex {
+		if nums[i] < nums[j] {
+			tmp[k] = nums[i]
+			i++
+		} else {
+			tmp[k] = nums[j]
+			j++
+		}
+		k++
+	}
+
+	for i <= mid {
+		tmp[k] = nums[i]
+		i++
+		k++
+	}
+
+	for j <= endIndex {
+		tmp[k] = nums[j]
+		j++
+		k++
+	}
+
+	// we use a temp array to store
+	// merged array temporarily
+	for i := 0; i < len(tmp); i++ {
+		nums[beginIndex+i] = tmp[i]
+	}
+}
+
+// TODO: pdqsort
