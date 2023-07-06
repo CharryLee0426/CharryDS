@@ -220,4 +220,34 @@ func (s *Sort) MaxHeapSort() {
 	s.sortedData = s.data
 }
 
+func (s *Sort) QuickSort() {
+	quickSort(s.data, 0, s.len-1)
+	s.sortedData = s.data
+}
+
+func quickSort(nums []int, beginIndex, endIndex int) {
+    if beginIndex < endIndex {
+        pivot := nums[endIndex]
+        i, j := beginIndex, endIndex
+        for i != j {
+            if nums[i] <= pivot {
+                i++
+            } else if nums[j] >= pivot {
+                j--
+            } else {
+                nums[i], nums[j] = nums[j], nums[i]
+            }
+        }
+
+        // let pivot to its right place
+        nums[j], nums[endIndex] = nums[endIndex], nums[j]
+
+        // recurse
+        quickSort(nums, beginIndex, i-1)
+        quickSort(nums, i+1, endIndex)
+    } else {
+        return
+    }
+}
+
 // TODO: Quick Sort, Merge Sort
