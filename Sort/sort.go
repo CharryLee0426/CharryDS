@@ -1,5 +1,7 @@
 package sort
 
+import "math/bits"
+
 // Assume that all elements are integers.
 // Assume we need to sort in ascending order.
 
@@ -299,4 +301,308 @@ func merge(nums []int, beginIndex, mid, endIndex int) {
 	}
 }
 
-// TODO: pdqsort
+func (s *Sort) PDQsort() {
+	n := s.Len()
+	if n <= 1 {
+		return
+	}
+
+	limit := bits.Len(uint(n))
+	pdqsort(s.data, 0, n, limit)
+	s.sortedData = s.data
+}
+
+func pdqsort(data []int, a, b, limit int) {
+	const maxInsertion = 12
+
+	var (
+		wasBalanced    = true // whether the last partitioning was reasonably balanced
+		wasPartitioned = true // whether the slice was already partitioned
+	)
+
+	for {
+		length := b - a
+
+		if length <= maxInsertion {
+			insertionSort(data, a, b)
+			return
+		}
+
+		// Fall back to heapsort if too many bad choices were made.
+		if limit == 0 {
+			heapSort(data, a, b)
+			return
+		}
+
+		// If the last partitioning was imbalanced, we need to breaking patterns.
+		if !wasBalanced {
+			breakPatterns(data, a, b)
+			limit--
+		}
+
+		pivot, hint := choosePivot(data, a, b)
+		if hint == decreasingHint {
+			reverseRange(data, a, b)
+			
+			pivot = (b - 1) - (pivot - a)
+			hint = increasingHint
+		}
+
+		// The slice is likely already sorted.
+		if wasBalanced && wasPartitioned && hint == increasingHint {
+			if partialInsertionSort(data, a, b) {
+				return
+			}
+		}
+
+		// Probably the slice contains many duplicate elements, partition the slice into
+		// elements equal to and elements greater than the pivot.
+		if a > 0 && !(data[a-1] < data[pivot]) {
+			mid := partitionEqual(data, a, b, pivot)
+			a = mid
+			continue
+		}
+
+		mid, alreadyPartitioned := partition(data, a, b, pivot)
+		wasPartitioned = alreadyPartitioned
+
+		leftLen, rightLen := mid-a, b-mid
+		balanceThreshold := length / 8
+		if leftLen < rightLen {
+			wasBalanced = leftLen >= balanceThreshold
+			pdqsort(data, a, mid, limit)
+			a = mid + 1
+		} else {
+			wasBalanced = rightLen >= balanceThreshold
+			pdqsort(data, mid+1, b, limit)
+			b = mid
+		}
+	}
+}
+
+const (
+	unknownHint = iota
+	increasingHint
+	decreasingHint
+)
+
+// tool functions used in pdqsort
+func insertionSort(data []int, a, b int) {
+	for i := a + 1; i < b; i++ {
+		for j := i; j > a && data[j] < data[j-1]; j-- {
+			data[j], data[j-1] = data[j-1], data[j]
+		}
+	}
+}
+
+func heapSort(data []int, a, b int) {
+	first := a
+	lo := 0
+	hi := b - a
+
+	// build a max heap
+	for i := (hi - 1) / 2; i >= 0; i-- {
+		slipDown(data, i, hi, first)
+	}
+
+	for i := hi - 1; i >= 0; i-- {
+		data[first], data[first+i] = data[first+i], data[first]
+		slipDown(data, lo, i, first)
+	}
+}
+
+type xorshift uint64
+
+func (r *xorshift) Next() uint64 {
+	*r ^= *r << 13
+	*r ^= *r >> 17
+	*r ^= *r << 5
+	return uint64(*r)
+}
+
+func nextPowerOfTwo(length int) uint {
+	shift := uint(bits.Len(uint(length)))
+	return uint(1 << shift)
+}
+
+func breakPatterns(data []int, a, b int) {
+	length := b - a
+	if length >= 8 {
+		random := xorshift(length)
+		modulus := nextPowerOfTwo(length)
+
+		for idx := a + (length/4)*2 - 1; idx <= a+(length/4)*2+1; idx++ {
+			other := int(uint(random.Next()) & (modulus - 1))
+			if other >= length {
+				other -= length
+			}
+			data[idx], data[a+other] = data[a+other], data[idx]
+		}
+	}
+}
+
+func choosePivot(data []int, a, b int) (pivot int, hint int) {
+	const (
+		shortestNinther = 50
+		maxSwaps        = 4 * 3
+	)
+
+	l := b - a
+
+	var (
+		swaps int
+		i     = a + l/4*1
+		j     = a + l/4*2
+		k     = a + l/4*3
+	)
+
+	if l >= 8 {
+		if l >= shortestNinther {
+
+			i = medianAdjacent(data, i, &swaps)
+			j = medianAdjacent(data, j, &swaps)
+			k = medianAdjacent(data, k, &swaps)
+		}
+
+		j = median(data, i, j, k, &swaps)
+	}
+
+	switch swaps {
+	case 0:
+		return j, increasingHint
+	case maxSwaps:
+		return j, decreasingHint
+	default:
+		return j, unknownHint
+	}
+}
+
+func order2(data []int, a, b int, swaps *int) (int, int) {
+	if data[b] < data[a] {
+		*swaps++
+		return b, a
+	}
+
+	return a, b
+}
+
+func median(data []int, a, b, c int, swaps *int) int {
+	a, b = order2(data, a, b, swaps)
+	b, c = order2(data, b, c, swaps)
+	a, b = order2(data, a, b, swaps)
+	return b
+}
+
+func medianAdjacent(data []int, a int, swaps *int) int {
+	return median(data, a-1, a, a+1, swaps)
+}
+
+func reverseRange(data []int, a, b int) {
+	i := a
+	j := b - 1
+	for i < j {
+		data[i], data[j] = data[j], data[i]
+		i++
+		j--
+	}
+}
+
+func partition(data []int, a, b, pivot int) (newpivot int, alreadyPartitioned bool) {
+	data[a], data[pivot] = data[pivot], data[a]
+	i, j := a+1, b-1 // i and j are inclusive of the elements remaining to be partitioned
+
+	for i <= j && data[i] < data[a] {
+		i++
+	}
+	for i <= j && !(data[j] < data[a]) {
+		j--
+	}
+	if i > j {
+		data[j], data[a] = data[a], data[j]
+		return j, true
+	}
+	data[i], data[j] = data[j], data[i]
+	i++
+	j--
+
+	for {
+		for i <= j && data[i] < data[a] {
+			i++
+		}
+		for i <= j && !(data[j] < data[a]) {
+			j--
+		}
+		if i > j {
+			break
+		}
+		data[i], data[j] = data[j], data[i]
+		i++
+		j--
+	}
+	data[j], data[a] = data[a], data[j]
+	return j, false
+}
+
+func partitionEqual(data []int, a, b, pivot int) (newpivot int) {
+	data[a], data[pivot] = data[pivot], data[a]
+	i, j := a+1, b-1
+
+	for {
+		for i <= j && !(data[a] < data[i]) {
+			i++
+		}
+		for i <= j && data[a] < data[j] {
+			j--
+		}
+		if i > j {
+			break
+		}
+		data[i], data[j] = data[j], data[i]
+		i++
+		j--
+	}
+	return i
+}
+
+func partialInsertionSort(data []int, a, b int) bool {
+	const (
+		maxSteps         = 5  // maximum number of adjacent out-of-order pairs that will get shifted
+		shortestShifting = 50 // don't shift any elements on short arrays
+	)
+	i := a + 1
+	for j := 0; j < maxSteps; j++ {
+		for i < b && !(data[i] < data[i-1]) {
+			i++
+		}
+
+		if i == b {
+			return true
+		}
+
+		if b-a < shortestShifting {
+			return false
+		}
+
+		data[i], data[i-1] = data[i-1], data[i]
+
+		// Shift the smaller one to the left.
+		if i-a >= 2 {
+			for j := i - 1; j >= 1; j-- {
+				if !(data[j] < data[j-1]) {
+					break
+				}
+				data[j], data[j-1] = data[j-1], data[j]
+			}
+		}
+		// Shift the greater one to the right.
+		if b-i >= 2 {
+			for j := i + 1; j < b; j++ {
+				if !(data[j] < data[j-1]) {
+					break
+				}
+				data[j], data[j-1] = data[j-1], data[j]
+			}
+		}
+	}
+	return false
+}

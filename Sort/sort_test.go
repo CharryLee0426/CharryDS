@@ -111,6 +111,21 @@ func TestMergeSort(t *testing.T) {
 	}
 }
 
+func TestPDQSort(t *testing.T) {
+	inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+	expected := [...]int{-5467984, -784, 0, 0, 42, 59, 74, 238, 905, 959, 7586, 7586, 9845}
+
+	s := NewSort(inputs[:])
+
+	s.PDQsort()
+
+	for i := 0; i < s.Len(); i++ {
+		if s.data[i] != expected[i] {
+			t.Errorf("QuickSort() = %d; expected %d", s.data[i], expected[i])
+		}
+	}
+}
+
 // 36x Shuffled data
 func BenchmarkBubbleSort(b *testing.B) {
 	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
@@ -261,7 +276,28 @@ func BenchmarkMergeSort(b *testing.B) {
 	}
 }
 
-func BenchmarkPdqsort(b *testing.B) {
+func BenchmarkPDQSort(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i ^ 0x2cc
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.PDQsort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i ^ 0x2cc
+		}
+	}
+}
+
+func BenchmarkOfficialPDQsort(b *testing.B) {
 	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
 
 	b.StopTimer()
@@ -424,6 +460,27 @@ func BenchmarkMergeSortSorted(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		b.StartTimer()
 		s.MergeSort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i
+		}
+	}
+}
+
+func BenchmarkPDQSortSorted(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.PDQsort()
 		b.StopTimer()
 		for i := 0; i < len(data); i++ {
 			s.data[i] = i
@@ -600,7 +657,28 @@ func BenchmarkMergeSortReversed(b *testing.B) {
 	}
 }
 
-func BenchmarkPdqsortReversed(b *testing.B) {
+func BenchmarkPDQSortReversed(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = len(data) - i
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.PDQsort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = len(data) - i
+		}
+	}
+}
+
+func BenchmarkOfficialPDQsortReversed(b *testing.B) {
 	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
 
 	b.StopTimer()
@@ -769,7 +847,28 @@ func BenchmarkMergeSortMod8(b *testing.B) {
 	}
 }
 
-func BenchmarkPdqsortMod8(b *testing.B) {
+func BenchmarkPDQSortMod8(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i % 8
+	}
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.PDQsort()
+		b.StopTimer()
+		for i := 0; i < len(data); i++ {
+			s.data[i] = i % 8
+		}
+	}
+}
+
+func BenchmarkOfficialPDQsortMod8(b *testing.B) {
 	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
 
 	b.StopTimer()
@@ -927,7 +1026,28 @@ func BenchmarkMergeSortRandom(b *testing.B) {
 	}
 }
 
-func BenchmarkPdqsortRandom(b *testing.B) {
+func BenchmarkPDQSortRandom(b *testing.B) {
+	// inputs := [...]int{74, 59, 238, -784, 9845, 959, 905, 0, 0, 42, 7586, -5467984, 7586}
+
+	b.StopTimer()
+	data := make([]int, 1<<10)
+	for i := 0; i < len(data); i++ {
+			data[i] = i
+	}
+	rand.Shuffle(len(data), func(i, j int) { data[i], data[j] = data[j], data[i] })
+
+	s := NewSort(data[:])
+
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		s.PDQsort()
+		b.StopTimer()
+		
+		rand.Shuffle(len(data), func(i, j int) { s.data[i], s.data[j] = s.data[j], s.data[i] })
+	}
+}
+
+func BenchmarkOfficialPDQsortRandom(b *testing.B) {
 	b.StopTimer()
 	data := make([]int, 1<<10)
 	for i := 0; i < len(data); i++ {
