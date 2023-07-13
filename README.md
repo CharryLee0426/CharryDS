@@ -79,3 +79,5 @@ BenchmarkMergeSortRandom-8                  1000            118175 ns/op        
 BenchmarkPDQSortRandom-8                    1000             82756 ns/op               0 B/op          0 allocs/op
 BenchmarkOfficialPDQsortRandom-8            1000             63176 ns/op              24 B/op          1 allocs/op
 ```
+
+* Recursive solution for eight queens puzzle
