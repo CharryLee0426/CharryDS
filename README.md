@@ -11,6 +11,7 @@ very widely used language right now, especially when it comes to cloud.
 ## 1. Data Structures
 * Heap (min heap)
 * Binary Tree (assumed to create a complete binary tree)
+* Disjoint Set Data Structure (Union Find)
 
 ## 2. Algorithms
 * Sort
