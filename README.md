@@ -23,6 +23,13 @@ very widely used language right now, especially when it comes to cloud.
     - [x] Merge Sort
     - [x] Pattern-defeating Quicksort (Pdqsort) (state of the art)
 
+* Graph
+    - [] Kruskal
+    - [] Prim
+    - [] Dijkstra
+    - [x] Bellman-Ford
+    - [x] SPFA
+
 Test condition:
 Three types of data: shuffle, sorted, reversed, mod 8 (1k elements)
 Disable compiler optimization
