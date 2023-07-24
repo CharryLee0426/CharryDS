@@ -29,6 +29,7 @@ very widely used language right now, especially when it comes to cloud.
     - [x] Dijkstra
     - [x] Bellman-Ford
     - [x] SPFA
+    - [x] Kahn's algorithm (topological sort)
 
 Test condition:
 Three types of data: shuffle, sorted, reversed, mod 8 (1k elements)
