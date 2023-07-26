@@ -24,7 +24,7 @@ very widely used language right now, especially when it comes to cloud.
     - [x] Pattern-defeating Quicksort (Pdqsort) (state of the art)
 
 * Graph
-    - [] Kruskal
+    - [x] Kruskal
     - [] Prim
     - [x] Dijkstra
     - [x] Bellman-Ford
