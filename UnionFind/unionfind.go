@@ -23,12 +23,11 @@ func NewUnionFind(n int) *UnionFind {
 }
 
 func (uf *UnionFind) Find(x int) int {
-	if uf.root[x] == x {
-		return x
-	} else {
-		uf.root[x] = uf.Find(uf.root[x])
-		return uf.root[x]
+	for x != uf.root[x] {
+		x = uf.root[x]
 	}
+
+	return x
 }
 
 func (uf *UnionFind) Union(x, y int) {
@@ -41,11 +40,11 @@ func (uf *UnionFind) Union(x, y int) {
 	
 	if uf.rank[x] < uf.rank[y] {
 		uf.root[x] = y
+	} else if uf.rank[x] > uf.rank[y] {
+		uf.root[y] = x
 	} else {
 		uf.root[y] = x
-		if uf.rank[x] == uf.rank[y] {
-			uf.rank[x]++
-		}
+		uf.rank[x]++
 	}
 }
 
