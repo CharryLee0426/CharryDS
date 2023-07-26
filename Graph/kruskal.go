@@ -85,10 +85,23 @@ func (ks *Kruskal) Solve() {
 	})
 
 	// there is space for improving
+	// we can terminate this loop earlier when
+	// all nodes are connected
+	// in my opinion, set data structure is good
+	// for this problem
+
+	containing := map[int]bool{}
+
 	for _, edge := range ks.Graph {
 		if !uf.IsConnected(edge[0], edge[1]) {
 			ks.Tree = append(ks.Tree, edge)
 			uf.Union(edge[0], edge[1])
+			containing[edge[0]] = true
+			containing[edge[1]] = true
+		}
+
+		if len(containing) == ks.N {
+			break
 		}
 	}
 }
