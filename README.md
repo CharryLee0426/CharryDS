@@ -25,7 +25,7 @@ very widely used language right now, especially when it comes to cloud.
 
 * Graph
     - [x] Kruskal
-    - [] Prim
+    - [x] Prim
     - [x] Dijkstra
     - [x] Bellman-Ford
     - [x] SPFA
