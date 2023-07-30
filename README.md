@@ -31,6 +31,16 @@ very widely used language right now, especially when it comes to cloud.
     - [x] SPFA
     - [x] Kahn's algorithm (topological sort)
 
+* Binary Search
+    - [x] Template 1
+        
+        Why do we use `mid = left + (right - left) / 2` instead of `mid = (left + right) / 2`?
+
+        Because the latter one may cause overflow when `left` and `right` are both very large.
+        For example, if our maximum number is 100, left is 50, and right is 80, `left + right`
+        is 130, which is larger than 100. Thus, it will cause an overflow. However, `right - left`
+        is 30, which is smaller than 100. Thus, the former one doesn't cause an overflow.
+
 Test condition:
 Three types of data: shuffle, sorted, reversed, mod 8 (1k elements)
 Disable compiler optimization
