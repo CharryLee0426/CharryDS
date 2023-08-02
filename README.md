@@ -395,3 +395,177 @@ var secrets = gin.H{
 	"lena":   gin.H{"email": "lena@guapa.com", "phone": "523443"},
 }
 ```
+
+## 4. How to use jwt middleware
+
+```go
+var testusers = []User{
+    User{ID: "1", Name: "Chen Li"},
+    User{ID: "2", Name: "Chen Lii"},
+    User{ID: "3", Name: "Chen Liii"},
+}
+
+func main() {
+    r := gin.Default()
+    r.Use(gin.Recovery())
+
+    public := r.Group("/")
+    private := r.Group("/")
+
+    private.Use(JwtAuthMiddleware("secret"))
+
+    public.POST("/login", func(c *gin.Context) {
+        id := c.PostForm("id")
+
+        for _, user := range testusers {
+            if user.ID == id {
+                token, err := CreateAccessToken(&user, "secret", 2)
+
+                if err != nil {
+                    c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+                    c.Abort()
+                }
+
+                c.SetCookie("access_token", token, 3600, "/", "localhost", false, true)
+                c.JSON(http.StatusOK, gin.H{"token": token})
+                return
+            }
+        }
+
+        c.JSON(http.StatusOK, gin.H{"error": "User not found"})
+    })
+
+    private.GET("/ping", func(c *gin.Context) {
+        cookietoken, _ := c.Cookie("access_token")
+        c.JSON(http.StatusOK, gin.H{"cookie": cookietoken})
+    })
+
+    r.Run(":8080")
+}
+
+type User struct {
+    ID string
+    Name string
+}
+
+type JwtCustomClaims struct {
+    Name string `json:"name"`
+    ID string `json:"id"`
+    jwt.StandardClaims
+}
+
+type JwtCustomRefreshClaims struct {
+    ID string `json:"id"`
+    jwt.StandardClaims
+}
+
+func CreateAccessToken(user *User, secrect string, expiry int) (accessToken string, err error) {
+    exp := time.Now().Add(time.Hour * time.Duration(expiry)).Unix()
+
+    claims := &JwtCustomClaims{
+        Name: user.Name,
+        ID: user.ID,
+        StandardClaims: jwt.StandardClaims{
+            ExpiresAt: exp,
+        },
+    }
+
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+    t, err := token.SignedString([]byte(secrect))
+
+    if err != nil {
+        return "", err
+    }
+
+    return t, err
+}
+
+func CreateRefreshToken(user *User, secret string, expiry int) (refreshToken string, err error) {
+    claimsRefresh := &JwtCustomRefreshClaims{
+        ID: user.ID,
+        StandardClaims: jwt.StandardClaims{
+            ExpiresAt: time.Now().Add(time.Hour * time.Duration(expiry)).Unix(),
+        },
+    }
+
+    token := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsRefresh)
+
+    rt, err := token.SignedString([]byte(secret))
+
+    if err != nil {
+        return "", err
+    }
+
+    return rt, err
+}
+
+func IsAuthorized(requestToken string, secret string) (bool, error) {
+    _, err := jwt.Parse(requestToken, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(secret), nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func ExtractIDFromToken(requestToken string, secret string) (string, error) {
+    token, err := jwt.Parse(requestToken, func(t *jwt.Token) (interface{}, error) {
+        if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+            return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
+        }
+
+        return []byte(secret), nil
+    })
+
+    if err != nil {
+        return "", err
+    }
+
+    claims, ok := token.Claims.(jwt.MapClaims)
+
+    if !ok && !token.Valid {
+        return "", fmt.Errorf("Invalid Token")
+    }
+
+    return claims["id"].(string), nil
+}
+
+func JwtAuthMiddleware(secret string) gin.HandlerFunc {
+    return func(c *gin.Context) {
+        authHeader := c.Request.Header.Get("Authorization")
+        t := strings.Split(authHeader, " ")
+
+        if len(t) == 2 {
+            authToken := t[1]
+            
+            authorized, err := IsAuthorized(authToken, secret)
+
+            if authorized {
+                userID, err := ExtractIDFromToken(authToken, secret)
+
+                if err != nil {
+                    c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+                    c.Abort()
+                    return
+                }
+
+                c.Header("x-user-id", userID)
+                c.Next()
+                return
+            }
+
+            c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+			c.Abort()
+			return
+        }
+
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+        c.Abort()
+    }
+}
+```
