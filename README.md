@@ -100,3 +100,298 @@ BenchmarkOfficialPDQsortRandom-8            1000             63176 ns/op        
 ```
 
 * Recursive solution for eight queens puzzle
+
+## 3. Backend Framework
+
+`gin-gonic` is used widely as a backend framework in Golang. It is a high performance framework with a lot of features. Here is example code for using it.
+
+```go
+package main
+
+import (
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+// go get -u github.com/gin-gonic/gin
+
+func main() {
+    // gin.DisableConsoleColor()
+    // gin.ForceConsoleColor()
+
+	// r := gin.Default()
+
+    f, _ := os.Create("gin.log")
+
+    gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
+
+    r := gin.Default()
+
+    // r := gin.New()
+
+    // r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+    //     return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
+	// 			param.ClientIP,
+	// 			param.TimeStamp.Format(time.RFC1123),
+	// 			param.Method,
+	// 			param.Path,
+	// 			param.Request.Proto,
+	// 			param.StatusCode,
+	// 			param.Latency,
+	// 			param.Request.UserAgent(),
+	// 			param.ErrorMessage,
+	// 	)
+    // }))
+
+    // r.Use(gin.Recovery())
+
+	r.GET("/ping", func(ctx *gin.Context) {
+		ctx.JSON(200, gin.H{
+			"message": "pong",
+		})
+	})
+
+	r.GET("/asciijson", func(ctx *gin.Context) {
+		data := map[string]interface{}{
+			"lang": "GO语言",
+			"tag":  "<br>",
+		}
+
+		// will output : {"lang":"GO\u8bed\u8a00","tag":"\u003cbr\u003e"}
+		ctx.AsciiJSON(http.StatusOK, data)
+	})
+
+	r.GET("/getb", GetDataB)
+	r.GET("/getc", GetDataC)
+	r.GET("/getd", GetDataD)
+
+	r.LoadHTMLFiles("form.html", "index.html")
+	// r.GET("/", indexHandler)
+	// r.POST("/", formHandler)
+
+    r.GET("/testing", startPage)
+
+    r.GET("/person/:name/:address", func(ctx *gin.Context) {
+        var person Person
+
+        if err := ctx.ShouldBindUri(&person); err != nil {
+            ctx.JSON(400, gin.H{"msg": err})
+            return
+        }
+
+        ctx.JSON(http.StatusOK, gin.H{"name": person.Name, "address": person.Address})
+    })
+
+    r.GET("/long_async", func(c *gin.Context) {
+		// create copy to be used inside the goroutine
+		cCp := c.Copy()
+		go func() {
+			// simulate a long task with time.Sleep(). 5 seconds
+			time.Sleep(5 * time.Second)
+
+			// note that you are using the copied context "cCp", IMPORTANT
+			log.Println("Done! in path " + cCp.Request.URL.Path)
+		}()
+	})
+
+	r.GET("/long_sync", func(c *gin.Context) {
+		// simulate a long task with time.Sleep(). 5 seconds
+		time.Sleep(5 * time.Second)
+
+		// since we are NOT using a goroutine, we do not have to copy the context
+		log.Println("Done! in path " + c.Request.URL.Path)
+	})
+
+    r.GET("/welcome", func(c *gin.Context) {
+        firstname := c.DefaultQuery("firstname", "Guest")
+        lastname := c.Query("lastname") // shortcut for c.Request.URL.Query().Get("lastname")
+
+        c.String(http.StatusOK, "Hello %s %s", firstname, lastname)
+    })
+
+    // r.GET("/test", func(c *gin.Context) {
+    //     c.Redirect(http.StatusMovedPermanently, "http://www.google.com/")
+    // })
+
+    r.GET("/test", func(c *gin.Context) {
+        c.Request.URL.Path = "/test2"
+        r.HandleContext(c)
+    })
+
+    r.GET("/test2", func(c *gin.Context) {
+        c.JSON(http.StatusOK, gin.H{"hello": "world"})
+    })
+
+    authorized := r.Group("/admin", gin.BasicAuth(gin.Accounts{
+		"foo":    "bar",
+		"austin": "1234",
+		"lena":   "hello2",
+		"manu":   "4321",
+	}))
+
+	// /admin/secrets endpoint
+	// hit "localhost:8080/admin/secrets
+	authorized.GET("/secrets", func(c *gin.Context) {
+		// get user, it was set by the BasicAuth middleware
+		user := c.MustGet(gin.AuthUserKey).(string)
+		if secret, ok := secrets[user]; ok {
+			c.JSON(http.StatusOK, gin.H{"user": user, "secret": secret})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"user": user, "secret": "NO SECRET :("})
+		}
+	})
+
+    r.GET("/", func(ctx *gin.Context) {
+        ctx.HTML(http.StatusOK, "index.html", nil)
+    })
+
+    r.POST("/upload", func(ctx *gin.Context) {
+        name := ctx.PostForm("name")
+        email := ctx.PostForm("email")
+
+        form, err := ctx.MultipartForm()
+
+        if err != nil {
+            ctx.String(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+        }
+
+        files := form.File["files"]
+
+        for _, file := range files {
+            filename := filepath.Base(file.Filename)
+
+            if err := ctx.SaveUploadedFile(file, "files/"+filename); err != nil {
+                ctx.String(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+            }
+        }
+
+        ctx.String(http.StatusOK, fmt.Sprintf("Uploaded successfully %d files with fields name=%s and email=%s.", len(files), name, email))
+    })
+
+    r.POST("/download", func(ctx *gin.Context) {
+        form, err := ctx.MultipartForm()
+        file := form.File["file"]
+
+        filename := filepath.Base(file[0].Filename)
+
+        if err != nil {
+            ctx.String(http.StatusBadRequest, fmt.Sprintf("get file path err: %s", err.Error()))
+        }
+
+        ctx.FileAttachment("files/"+filename, filename)
+        ctx.String(http.StatusOK, fmt.Sprintf("Download successfully %s", filename))
+    })
+
+    s := &http.Server{
+        Addr:           ":8080",
+        Handler:        r,
+        ReadTimeout:    10 * time.Second,
+        WriteTimeout:   10 * time.Second,
+        MaxHeaderBytes: 1 << 20,
+    }
+
+    s.ListenAndServe()
+}
+
+type StructA struct {
+    FieldA string `form:"field_a"`
+}
+
+type StructB struct {
+    NestedStruct StructA
+    FieldB string `form:"field_b"`
+}
+
+type StructC struct {
+    NestedStructPointer *StructA
+    FieldC string `form:"field_c"`
+}
+
+type StructD struct {
+    NestedAnonyStruct struct {
+        FieldX string `form:"field_x"`
+    }
+    FieldD string `form:"field_d"`
+}
+
+func GetDataB(c *gin.Context) {
+    var b StructB
+    c.Bind(&b)
+    c.JSON(200, gin.H{
+        "a": b.NestedStruct,
+        "b": b.FieldB,
+    })
+}
+
+func GetDataC(c *gin.Context) {
+    var b StructC
+    c.Bind(&b)
+    c.JSON(200, gin.H{
+        "a": b.NestedStructPointer,
+        "c": b.FieldC,
+    })
+}
+
+func GetDataD(c *gin.Context) {
+    var b StructD
+    c.Bind(&b)
+    c.JSON(200, gin.H{
+        "x": b.NestedAnonyStruct,
+        "d": b.FieldD,
+    })
+}
+
+type myForm struct {
+    Colors []string `form:"colors[]"`
+}
+
+func indexHandler(c *gin.Context) {
+    c.HTML(200, "form.html", nil)
+}
+
+func formHandler(c *gin.Context) {
+    var fakeForm myForm
+    c.Bind(&fakeForm)
+    c.JSON(200, gin.H{"color": fakeForm.Colors})
+}
+
+type Person struct {
+    Name string `form:"name" json:"name" uri:"name"`
+    Address string `form:"address" json:"address" uri:"address"`
+}
+
+func startPage(ctx *gin.Context) {
+    var person Person
+
+    if ctx.Bind(&person) == nil {
+        log.Println("====== Only Bind By Query String ======")
+        log.Println(person.Name)
+        log.Println(person.Address)
+    }
+
+    if ctx.BindJSON(&person) == nil {
+        log.Println("====== Only Bind By JSON ======")
+        log.Println(person.Name)
+        log.Println(person.Address)
+    }
+
+    ctx.String(http.StatusOK, "Success")
+}
+
+// curl -X GET "localhost:8080/testing?name=appleboy&address=xyz"
+// curl -X GET localhost:8080/testing --data '{"name":"JJ", "address":"xyz"}' -H "Content-Type:application/json"
+
+// BasicAuth middleware
+var secrets = gin.H{
+	"foo":    gin.H{"email": "foo@bar.com", "phone": "123433"},
+	"austin": gin.H{"email": "austin@example.com", "phone": "666"},
+	"lena":   gin.H{"email": "lena@guapa.com", "phone": "523443"},
+}
+```
