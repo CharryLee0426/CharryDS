@@ -569,3 +569,180 @@ func JwtAuthMiddleware(secret string) gin.HandlerFunc {
     }
 }
 ```
+
+## 5. How to use mysql driver
+
+```go
+type Album struct {
+    ID     int64
+    Title  string
+    Artist string
+    Price  float32
+}
+
+var db *sql.DB
+
+func main() {
+	cfg := mysql.Config{
+		User: "root",
+		Passwd: "Lc15503539901",
+		Net: "tcp",
+		Addr: "127.0.0.1:3306",
+		DBName: "recordings",	
+	}
+
+	var err error
+
+	db, err := sql.Open("mysql", cfg.FormatDSN())
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// ping
+	pingErr := db.Ping()
+
+	if pingErr != nil {
+		log.Fatal(pingErr)
+	}
+
+	fmt.Println("Connected!")
+
+	albums, err := fetchAlbumsByArtist("John Coltrane", db)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Albums found: %v\n", albums)
+
+	rows, err := db.Query("select * from album where artist = ?", "John Coltrane")
+
+	albs := []Album{}
+
+	for rows.Next() {
+		var alb Album
+
+		err := rows.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		albs = append(albs, alb)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("%v", albums)
+
+	albID, err := addAlbum(Album{
+		Title:  "The Modern Sound of Betty Carter",
+		Artist: "Betty Carter",
+		Price:  49.99,
+	}, db)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("ID of added album: %v\n", albID)
+
+	newAlbID, err := updateAlbumById(Album{
+		ID: 1,
+		Title: "Red Brain",
+		Artist: "John Coltrane",
+		Price: 99.99,
+	}, db)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("ID of updated album: %v\n", newAlbID)
+
+	row, err := deleteAlbumById(5, db)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("ID of deleted album: %v\n", row)
+}
+
+// db is not initialized if no db parameter put in
+func fetchAlbumsByArtist(name string, db *sql.DB) ([]Album, error) {
+	var albums []Album
+
+	rows, err := db.Query("SELECT * FROM album WHERE artist = ?", name)
+
+	if err != nil {
+		return nil, fmt.Errorf("fetchAlbumByArtist %q: %v", name, err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var alb Album
+
+		if err := rows.Scan(&alb.ID, &alb.Title, &alb.Artist, &alb.Price); err != nil {
+            return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
+        }
+        albums = append(albums, alb)
+	}
+
+	if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("albumsByArtist %q: %v", name, err)
+    }
+
+	return albums, nil
+}
+
+func addAlbum(alb Album, db *sql.DB) (int64, error) {
+	result, err := db.Exec("insert into album (title, artist, price) values (?, ?, ?)", alb.Title, alb.Artist, alb.Price)
+
+	if err != nil {
+		return 0, fmt.Errorf("addAlbum: %v", err)
+	}
+
+	id, err := result.LastInsertId()
+
+	if err != nil {
+		return 0, fmt.Errorf("addAlbum: %v", err)
+	}
+
+	return id, nil
+}
+
+func updateAlbumById(newAlb Album, db *sql.DB) (int64, error) {
+	result, err := db.Exec("update album set title = ?, artist = ?, price = ? where id = ?", newAlb.Title, newAlb.Artist, newAlb.Price, newAlb.ID)
+
+	if err != nil {
+		return 0, fmt.Errorf("updateAlbumById: %v", err)
+	}
+
+	id, err := result.RowsAffected()
+
+	if err != nil {
+		return 0, fmt.Errorf("updateAlbumById: %v", err)
+	}
+
+	return id, nil
+}
+
+func deleteAlbumById(id int, db *sql.DB) (int64, error) {
+	result, err := db.Exec("delete from album where id = ?", id)
+
+	if err != nil {
+		return 0, fmt.Errorf("deleteAlbumById: %v", err)
+	}
+
+	row, err := result.RowsAffected()
+
+	if err != nil {
+		return 0, fmt.Errorf("deleteAlbumById: %v", err)
+	}
+
+	return row, nil
+}
+```
