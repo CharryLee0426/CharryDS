@@ -746,3 +746,38 @@ func deleteAlbumById(id int, db *sql.DB) (int64, error) {
 	return row, nil
 }
 ```
+
+## 6. How to use viper to read config file
+
+```go
+type Env struct {
+	AccessTokenExpiryHour int `mapstructure:"ACCESS_TOKEN_EXPIRY_HOUR"`		// no space allowed
+	RefreshTokenExpiryHour int `mapstructure:"REFRESH_TOKEN_EXPIRY_HOUR"`
+	AccessTokenSecret string `mapstructure:"ACCESS_TOKEN_SECRET"`
+	RefreshTokenSecret string `mapstructure:"REFRESH_TOKEN_SECRET"`
+}
+
+func NewEnv() *Env {
+	env := Env{}
+	viper.SetConfigFile(".env")
+
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Fatal("Can't find the file .env : ", err)
+	}
+
+	err = viper.Unmarshal(&env)
+	if err != nil {
+		log.Fatal("Environment can't be loaded: ", err)
+	}
+
+	return &env
+}
+
+func main() {
+	env := NewEnv()
+
+	fmt.Println(env.AccessTokenExpiryHour)
+	fmt.Println(env.AccessTokenSecret)
+}
+```
