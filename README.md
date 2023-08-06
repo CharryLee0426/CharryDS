@@ -781,3 +781,36 @@ func main() {
 	fmt.Println(env.AccessTokenSecret)
 }
 ```
+
+## 7. How to use swaggo for generating api docs
+
+```go
+package route
+
+import (
+	"backend/bootstrap"
+
+	"github.com/gin-gonic/gin"
+	"github.com/swaggo/files"
+	"github.com/swaggo/gin-swagger"
+)
+
+func NewSwagDocRouter(env *bootstrap.Env, group *gin.RouterGroup) {
+	group.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+}
+```
+
+ATTENTION: swagger's auto import is not very good, so developers need to import these dependencies
+manually.
+
+Also, in main.go, or entry file, add this import:
+
+```go
+package main
+
+import (
+    _ "yourmodule/docs"
+)
+```
+
+This is because swaggo will use files in folder docs in order to generate api docs.
