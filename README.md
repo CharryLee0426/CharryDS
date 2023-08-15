@@ -814,3 +814,148 @@ import (
 ```
 
 This is because swaggo will use files in folder docs in order to generate api docs.
+
+## 8. Concurrency
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	go func() {
+		for i := 10; i < 20; i++ {
+			fmt.Print(i, " ")
+		}
+	}()
+
+	go function()
+
+	time.Sleep(1 * time.Second)
+}
+
+func function() {
+	for i := 0; i < 10; i++ {
+		fmt.Print(i)
+	}
+	fmt.Println()
+}
+```
+
+Execute results I tested:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+10 11 12 13 14 15 16 17 18 19 0123456789
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+10 11 12 13 14 15 16 17 18 19 0123456789
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+10 11 12 13 14 15 16 17 18 19 0123456789
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+0123456789
+10 11 12 13 14 15 16 17 18 19 % 
+```
+
+It shows that developers can't control the order of execution of goroutines.
+
+Another example:
+
+```go
+package main
+
+import (
+	"flag"
+	"fmt"
+	"time"
+)
+
+func main() {
+	n := flag.Int("n", 10, "Number of goroutines")
+	flag.Parse()
+
+	count := *n
+	fmt.Printf("Going to create %d goroutines.\n", count)
+
+	for i := 0; i < count; i++ {
+		go func(x int) {
+			fmt.Printf("%d ", x)
+		}(i)
+	}
+
+	time.Sleep(time.Second)
+	fmt.Println("\nExiting...")
+}
+```
+
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go -n 100
+Going to create 100 goroutines.
+0 50 3 4 2 27 5 28 30 31 6 29 7 8 9 10 11 12 32 13 33 14 15 17 16 99 51 34 35 37 20 36 53 40 55 23 41 54 39 26 57 22 19 52 48 24 56 61 18 42 71 21 47 73 45 38 65 59 60 76 25 80 69 49 63 87 81 82 72 83 89 91 84 58 92 75 85 46 66 67 68 62 77 78 86 79 43 93 70 88 96 44 97 98 64 94 74 90 95 1 
+Exiting...
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go -n 100
+Going to create 100 goroutines.
+3 2 23 14 15 16 17 18 19 20 21 22 8 1 0 10 4 5 6 7 9 34 24 46 25 35 26 28 29 30 37 36 27 38 39 40 41 31 42 43 32 44 33 45 72 11 12 85 75 74 73 47 48 49 52 51 50 99 80 77 78 79 88 56 83 54 89 55 76 91 82 86 60 87 84 97 57 90 62 81 95 64 53 92 96 93 98 94 67 66 68 61 58 69 71 70 59 65 63 13 
+Exiting...
+```
+
+Another point needs to pay attention to: each program needs a sleep time, otherwise, the program will exit before goroutines are executed.
+
+Another way for goroutines to execute successfully is to use `sync.WaitGroup`:
+
+```go
+package main
+
+import (
+	"flag"
+	"fmt"
+	"sync"
+)
+
+func main() {
+	n := flag.Int("n", 10, "Number of goroutines")
+	flag.Parse()
+
+	count := *n
+	fmt.Printf("Going to create %d goroutines.\n", count)
+
+	var waitGroup sync.WaitGroup
+	
+	fmt.Printf("%#v\n", waitGroup)
+	for i := 0; i < count; i++ {
+		waitGroup.Add(1)
+		go func(x int) {
+			defer waitGroup.Done()
+			fmt.Printf("%d ", x)
+		}(i)
+	}
+
+	fmt.Printf("\n%#v\n", waitGroup)
+	waitGroup.Wait()
+	fmt.Println("\nExiting...")
+}
+```
+
+We have to put Add operation first in order to prevent race condition.
+
+Result:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go -n 100
+Going to create 100 goroutines.
+sync.WaitGroup{noCopy:sync.noCopy{}, state:atomic.Uint64{_:atomic.noCopy{}, _:atomic.align64{}, v:0x0}, sema:0x0}
+0 8 5 6 7 54 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 2 1 3 23 9 10 11 12 13 14 15 16 17 18 19 20 21 22 70 55 56 57 4 63 58 64 
+sync.WaitGroup{noCopy:sync.noCopy{}, state:atomic.Uint64{_:atomic.noCopy{}, _:atomic.align64{}, v:0x3900000000}, sema:0x0}
+59 65 61 60 99 69 68 67 62 66 71 76 85 73 25 75 79 72 90 24 28 82 77 96 78 98 86 34 30 27 80 81 87 91 33 74 29 93 88 97 83 89 94 95 84 26 36 32 35 31 37 92 38 
+Exiting...
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go -n 100
+Going to create 100 goroutines.
+sync.WaitGroup{noCopy:sync.noCopy{}, state:atomic.Uint64{_:atomic.noCopy{}, _:atomic.align64{}, v:0x0}, sema:0x0}
+3 0 14 4 5 6 7 8 9 10 11 12 13 26 15 16 17 18 19 20 21 22 23 24 25 40 27 1 33 28 34 35 30 29 36 37 31 38 32 65 41 2 
+sync.WaitGroup{noCopy:sync.noCopy{}, state:atomic.Uint64{_:atomic.noCopy{}, _:atomic.align64{}, v:0x3b00000000}, sema:0x0}
+82 43 66 47 67 42 85 45 50 74 81 51 46 44 71 88 91 84 72 78 48 57 97 92 69 99 39 94 75 68 86 76 95 87 83 52 96 53 54 55 77 56 90 89 49 61 79 58 73 62 59 80 63 60 64 93 70 98 
+Exiting...
+```
+
+If `waitGroup.Add` > `waitGroup.Done`, the program will return an error "fatal error: all goroutines are asleep - deadlock!";
+If `waitGroup.Add` < `waitGroup.Done`, the program will return an error "panic: sync: negative WaitGroup counter".
