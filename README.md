@@ -959,3 +959,250 @@ Exiting...
 
 If `waitGroup.Add` > `waitGroup.Done`, the program will return an error "fatal error: all goroutines are asleep - deadlock!";
 If `waitGroup.Add` < `waitGroup.Done`, the program will return an error "panic: sync: negative WaitGroup counter".
+
+Channel is a mechanism for goroutines to communicate with each other. It is a data structure that can be used to send and receive messages between goroutines. In practice, channels should be specified to be used
+for just one purpose, either sending or receiving if they're used as
+parameters.
+
+Read this example:
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c := make(chan int)
+	go writeToChannel(c, 10)
+	time.Sleep(1 * time.Second)
+}
+
+func writeToChannel(c chan int, x int) {
+	fmt.Println(x)
+	c <- x
+
+    // ignored because no one reads contents in channel
+	close(c)
+	fmt.Println(x)
+}
+```
+
+Golang uses arrows to show the direction of data flow. It's very easy
+for developers to understand.
+
+```go
+// c is a chan, v is a value, k is a variable
+// c, v, and k have the same value type
+
+// write
+c <- v
+
+// read
+k := <- c
+```
+
+Fix the above example to let ignored part be executed:
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c := make(chan int)
+	go writeToChannel(c, 10)
+	time.Sleep(1 * time.Second)
+	fmt.Println("Read:", <-c)
+	time.Sleep(1 * time.Second)
+
+	_, ok := <- c
+
+	if ok {
+		fmt.Println("Channel is open!")
+	} else {
+		fmt.Println("Channel is closed!")
+	}
+}
+
+func writeToChannel(c chan int, x int) {
+	fmt.Println("1", x)
+	c <- x
+	close(c)
+	fmt.Println("2", x)
+}
+```
+
+Result:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+1 10
+Read: 10
+2 10
+Channel is closed!
+```
+
+Pipeline is a system that creates a constant data flow in programms. It's a series of stages connected by channels, where each stage is a group of goroutines running the same function.
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+)
+
+var CLOSEA = false				// checked by first(), altered bt second()
+var DATA = make(map[int]bool)
+
+func main() {
+	if len(os.Args) != 3 {
+		fmt.Println("Need two integer parameters!")
+		os.Exit(1)
+	}
+
+	n1, _ := strconv.Atoi(os.Args[1])
+	n2, _ := strconv.Atoi(os.Args[2])
+
+	if n1 > n2 {
+		fmt.Printf("%d should be smaller than %d\n", n1, n2)
+		return
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	A := make(chan int) // for input
+	B := make(chan int) // for output
+
+	go first(n1, n2, A)
+	go second(B, A)
+	third(B)
+}
+
+func random(min, max int) int {
+	return min + rand.Intn(max - min)
+}
+
+func first(min, max int, out chan<- int) {
+	for {
+		if CLOSEA {
+			close(out)
+			return
+		}
+		out <- random(min, max)
+	}
+}
+
+func second(out chan<- int, in <-chan int) {
+	for x := range in {
+		fmt.Print(x, " ")
+
+		_, ok := DATA[x]
+
+		if ok {
+			CLOSEA = true
+		} else {
+			DATA[x] = true
+			out <- x
+		}
+	}
+
+	fmt.Println()
+	close(out)
+}
+
+func third(in <-chan int) {
+	sum := 0
+
+	for x := range in {
+		sum += x
+	}
+
+	fmt.Printf("The sum of the random numbers is %d.\n", sum)
+}
+```
+
+Practice: implement a pipeline that generates sum of squares of numbers in a range by both sequential and concurrent ways.
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+)
+
+func main() {
+	start := time.Now()
+
+	if len(os.Args) != 3 {
+		fmt.Println("Need two integer parameters")
+		os.Exit(1)
+	}
+
+	n1, _ := strconv.Atoi(os.Args[1])
+	n2, _ := strconv.Atoi(os.Args[2])
+
+	if n1 > n2 {
+		fmt.Printf("%d should be less than %d\n", n1, n2)
+	}
+
+	// sum := 0
+
+	// for i := n1; i <= n2; i++ {
+	// 	sum += i*i
+	// }
+
+	// fmt.Println(sum)
+
+	A := make(chan int)
+	B := make(chan int)
+
+	go first(n1, n2, A)
+	go second(A, B)
+	third(B)
+
+	fmt.Println(time.Since(start))
+}
+
+func first(min, max int, out chan<- int) {
+	i := min
+
+	for i <= max {
+		out <- i
+		i++
+	}
+
+	close(out)
+}
+
+func second(in <-chan int, out chan<- int) {
+	for i := range in {
+		out <- i * i
+	}
+
+	close(out)
+}
+
+func third(in <-chan int) {
+	sum := 0
+
+	for x := range in {
+		sum += x
+	}
+
+	fmt.Println(sum)
+}
+```
+
+Result: sequential implementation is faster than concurrent. (50us vs 150us)
