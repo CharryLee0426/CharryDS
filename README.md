@@ -1205,4 +1205,200 @@ func third(in <-chan int) {
 }
 ```
 
-Result: sequential implementation is faster than concurrent. (50us vs 150us)
+Result: sequential implementation is faster than concurrent. (50us vs 150us) It makes sense because concurrent implementation contains extra operations such as creating and close channels, creating goroutines, etc.
+
+Using `select` keyword can connect several channels. It is very important in go concurrency model. The usage of `select` is very similar
+to `switch` statement. However, it checks simultaneously but not sequentially.
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"os"
+	"strconv"
+	"time"
+)
+
+func main() {
+	rand.Seed(time.Now().Unix())
+	createNumber := make(chan int)
+	end := make(chan bool)
+
+	if len(os.Args) != 2 {
+		fmt.Println("Please give me an integer!")
+		return
+	}
+
+	n, _ := strconv.Atoi(os.Args[1])
+	fmt.Printf("Going to create %d random numbers.\n", n)
+	go gen(0, 2*n, createNumber, end)
+	for i := 0; i < n; i++ {
+		fmt.Printf("%d ", <-createNumber)
+	}
+
+	time.Sleep(5 * time.Second)
+	fmt.Println("Exiting...")
+	end <- true
+}
+
+func gen(min, max int, createNumber chan int, end chan bool) {
+	for {
+		select {
+		case createNumber <- rand.Intn(max - min) + min:
+		case <-end:
+			close(end)
+			return
+		case <-time.After(4 * time.Second):
+			fmt.Println("\ntime.After()!")
+		}
+	}
+}
+```
+
+It's very important to learn how to **time out** goroutines. There are two ways to do it. Let me show the first way:
+
+```go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c1 := make(chan string)
+
+	go func() {
+		fmt.Println("c1 start")
+		time.Sleep(time.Second * 3) // simulate this task needs 3 seconds
+		c1 <- "c1 is ok"
+	}()
+
+	select {
+	case res := <-c1:
+		fmt.Println(res)
+	case <-time.After(time.Second * 1):
+		fmt.Println("timeout c1")
+	}
+
+	c2 := make(chan string)
+
+	go func() {
+		fmt.Println("c2 start")
+		time.Sleep(time.Second * 3) // simulate this task needs 3 seconds
+		c2 <- "c2 is ok"
+	}()
+
+	select {
+	case res := <-c2:
+		fmt.Println(res)
+	case <-time.After(time.Second * 4):
+		fmt.Println("timeout c2")
+	}
+}
+```
+
+You will see c1 is time out but c2 is executed successfully.
+
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+timeout c1
+1.001023166s
+c2 is ok
+4.00227725s
+4.002290333s
+```
+
+Another way is to use `sync.WaitGroup` to control the time out:
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"sync"
+	"time"
+)
+
+func main() {
+	arguments := os.Args
+	start := time.Now()
+
+	if len(arguments) != 2 {
+		fmt.Println("Need a time duration!")
+		return
+	}
+
+	var w sync.WaitGroup
+	w.Add(1)
+
+	t, err := strconv.Atoi(arguments[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	duration := time.Duration(int32(t)) * time.Millisecond
+	fmt.Printf("Timeout period is: %d\n", duration)
+
+	if timeout(&w, duration) {
+		fmt.Println("Timed out!")
+		fmt.Println(time.Since(start))
+	} else {
+		fmt.Println("OK!")
+		fmt.Println(time.Since(start))
+	}
+
+	w.Done()
+
+	if timeout(&w, duration) {
+		fmt.Println("Timed out!")
+		fmt.Println(time.Since(start))
+	} else {
+		fmt.Println("OK!")
+		fmt.Println(time.Since(start))
+	}
+}
+
+func timeout(w *sync.WaitGroup, t time.Duration) bool {
+	temp := make(chan int)
+
+	go func() {
+		time.Sleep(5 *time.Second)
+		defer close(temp)
+		w.Wait()
+	}()
+
+	select {
+		case  <-temp:
+			return false
+		case <-time.After(t):
+			return true
+	}
+}
+```
+
+If we set duration to 10s, the result should be:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go 10000
+Timeout period is: 10000000000
+Timed out!
+10.001309208s
+OK!
+15.002601167s
+```
+
+If we set duration to 1s, the result should be:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go 1000
+Timeout period is: 1000000000
+Timed out!
+1.001271042s
+Timed out!
+2.002877084s
+```
