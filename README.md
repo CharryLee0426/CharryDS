@@ -1402,3 +1402,620 @@ Timed out!
 Timed out!
 2.002877084s
 ```
+
+A buffered channel can be used as semaphore in order to limit the throughput of your application.
+
+```go
+package main
+
+import "fmt"
+
+func main() {
+	numbers := make(chan int, 5)
+	counter := 10
+
+	for i := 0; i < counter; i++ {
+		select {
+		case numbers <- i:
+		default:
+			fmt.Println("Not enough space for", i)
+		}
+	}
+
+	for i := 0; i < counter+5; i++ {
+		select {
+		case num := <-numbers:
+			fmt.Println(num)
+		default:
+			fmt.Println("No more numbers")
+			break
+		}
+	}
+}
+```
+In this program, only 0 to 4 can be put into the buffered channel.
+
+`nil` channel is useful due to its always blocked feature.
+
+```go
+package main
+
+import (
+	"fmt"
+	"math/rand"
+	"time"
+)
+
+func  main() {
+	c := make(chan int)
+
+	go add(c)
+	go send(c)
+
+	time.Sleep(2 * time.Second)
+}
+
+func add(c chan int) {
+	sum := 0
+	t := time.NewTimer(time.Second)
+
+	for {
+		select {
+		case input := <-c:
+			sum += input
+		case <-t.C:
+			c = nil		// it will be blocked
+			fmt.Println(sum)
+		}
+	}
+}
+
+func send(c chan int) {
+	for {
+		c <- rand.Intn(10)
+	}
+}
+```
+
+Channel of channels is very hard for developers to understand. This is an example to illustrate how to use it. Hope me can understand this:
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+)
+
+var times int
+
+func main() {
+	arguments := os.Args
+
+	if len(arguments) != 2 {
+		fmt.Println("Need just one argument!")
+		return
+	}
+
+	times, err := strconv.Atoi(arguments[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cc := make(chan chan int)
+
+	for i := 1; i < times+1; i++ {
+		f := make(chan bool)
+
+		go f1(cc, f)
+
+		ch := <-cc
+		ch <- i
+
+		for sum := range ch {
+			fmt.Printf("Sum of %d is %d\n", i, sum)
+		}
+
+		fmt.Println()
+		time.Sleep(time.Second)
+		close(f)
+	}
+}
+
+func f1(cc chan chan int, f chan bool) {
+	c := make(chan int)
+
+	cc <- c
+	defer close(c)
+
+	sum := 0
+
+	select {
+	case x := <-c:
+		for i := 0; i < x; i++ {
+			sum += i
+		}
+
+		c <- sum
+	case <-f:
+		return
+	}
+}
+```
+
+I can know its usage. The real problem is: how this program can make sure the order of `c := make(chan int)`, `cc <- c`, `ch := <-cc`, and `ch <- i`?
+
+Critical Section is very important when you want some concurrency tasks runs in order. For example, you should do this if many tasks share the same memory or variables. To achive it, you can use `sync.Mutex`.
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"sync"
+	"time"
+)
+
+var (
+	m sync.Mutex
+	v1 int
+)
+
+func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("Please give me an integer!")
+		return
+	}
+
+	numGR, err := strconv.Atoi(os.Args[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var waitGroup sync.WaitGroup
+
+	fmt.Printf("%d", read())
+
+	for i := 0; i < numGR; i++ {
+		waitGroup.Add(1)
+
+		go func(x int) {
+			defer waitGroup.Done()
+			change(x)
+			fmt.Printf("-> %d", read())
+		}(i)
+	}
+
+	waitGroup.Wait()
+	fmt.Printf("-> %d\n", read())
+}
+
+func change(i int) {
+	m.Lock()
+
+	// this section will be executed by only one goroutine at a time
+	// this section is called critical section
+	time.Sleep(time.Second)
+	v1 += 1
+	if v1 % 10 == 0 {
+		v1 -= 10 * i
+	}
+
+	m.Unlock()
+}
+
+func read() int {
+	m.Lock()
+	a := v1
+	m.Unlock()
+	return a
+}
+```
+
+If you forget to unlock your critical section, the program will be deadlocked.
+
+For eample, this program:
+
+```go
+package main
+
+import (
+	"fmt"
+	"sync"
+)
+
+var m sync.Mutex
+
+func main() {
+	var w sync.WaitGroup
+
+	go func() {
+		defer w.Done()
+		function()
+	}()
+
+	w.Add(1)
+
+	go func() {
+		defer w.Done()
+		function()
+	}()
+
+	w.Add(1)
+
+	w.Wait()
+}
+
+func function() {
+	m.Lock()
+	fmt.Println("Locked")
+	// no unlock
+}
+```
+
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go
+Locked
+fatal error: all goroutines are asleep - deadlock!
+
+goroutine 1 [semacquire]:
+sync.runtime_Semacquire(0x140000021a0?)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/runtime/sema.go:62 +0x2c
+sync.(*WaitGroup).Wait(0x140000a6020)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/sync/waitgroup.go:116 +0x78
+main.main()
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:27 +0xd0
+
+goroutine 18 [sync.Mutex.Lock]:
+sync.runtime_SemacquireMutex(0x0?, 0x0?, 0x0?)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/runtime/sema.go:77 +0x28
+sync.(*Mutex).lockSlow(0x10427ff40)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/sync/mutex.go:171 +0x178
+sync.(*Mutex).Lock(...)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/sync/mutex.go:90
+main.function()
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:31 +0x84
+main.main.func1()
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:15 +0x4c
+created by main.main
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:13 +0x6c
+exit status 2
+```
+
+`RWMutex` is more advanced exclusive mutex. It allows multiple readers or one writer at the same time. Its drawback is that it is only when there are no readers reading the data, the writer can write data.
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"sync"
+	"time"
+)
+
+type secret struct {
+	RWM sync.RWMutex
+	M sync.Mutex
+	password string
+}
+
+var password = secret{password: "myPassword"}
+
+func Change(c *secret, pass string) {
+	c.RWM.Lock()
+	fmt.Println("LChange")
+	time.Sleep(10 * time.Second)
+
+	c.password = pass
+	c.RWM.Unlock()
+}
+
+// Using RWMutex
+func show(c *secret) string {
+	c.RWM.RLock()
+	fmt.Print("show")
+
+	time.Sleep(3 * time.Second)
+	defer c.RWM.RUnlock()
+	
+	return c.password
+}
+
+// Using Mutex
+func showWithLock(c *secret) string {
+	c.M.Lock()
+
+	fmt.Print("showWithLock")
+
+	time.Sleep(3 * time.Second)
+	defer c.M.Unlock()
+
+	return c.password
+}
+
+func main() {
+	var showFunction = func(c *secret) string { return "" }
+
+	if len(os.Args) != 2 {
+		fmt.Println("Using sync.RWMutex!")
+		showFunction = show
+	} else {
+		fmt.Println("Using sync.Mutex!")
+		showFunction = showWithLock
+	}
+
+	var waitGroup sync.WaitGroup
+
+	fmt.Println("Pass:", showFunction(&password))
+
+	for i := 0; i < 15; i++ {
+		waitGroup.Add(1)
+
+		// reader
+		go func() {
+			defer waitGroup.Done()
+			fmt.Println("Go Pass:", showFunction(&password))
+		}()
+
+		// writer
+		go func() {
+			waitGroup.Add(1)
+			defer waitGroup.Done()
+			Change(&password, "123456")
+		}()
+
+		waitGroup.Wait()
+		fmt.Println("Pass:", showFunction(&password))
+	}
+}
+```
+
+Result here:
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % time go run main.go 10  >/dev/null
+go run main.go 10 > /dev/null  0.13s user 0.14s system 0% cpu 1:08.76 total
+(base) chenli@Chens-MacBook-Pro CharryDS % time go run main.go  >/dev/null 
+go run main.go > /dev/null  0.12s user 0.14s system 0% cpu 1:23.43 total
+```
+
+The first one used `Mutex` and the second one used `RWMutex`. The result shows that `RWMutex` is faster than `Mutex`.
+
+A data race condition is a situation where two or more running elements such as threads and goroutines try to take control or modify a shared resource or a variable of a program. A data race condition occurs when there are two or more instuctions access the same memory and at least one of them is a write instruction.
+
+Using `-race` flag when running or building a Go source file.
+
+For example, read this program:
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+	"strconv"
+	"sync"
+)
+
+func main() {
+	arguments := os.Args
+	if len(arguments) != 2 {
+		fmt.Println("Please provide an integer")
+		os.Exit(1)
+	}
+
+	numGR, err := strconv.Atoi(arguments[1])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var waitGroup sync.WaitGroup
+
+	k := make(map[int]int)
+	k[1] = 12
+
+	for i := 0; i < numGR; i++ {
+		waitGroup.Add(1)
+		go func(i int) {
+			defer waitGroup.Done()
+			k[i] = i
+		}(i)
+	}
+
+	k[2] = 10
+	waitGroup.Wait()
+	fmt.Printf("k = %#v\n", k)
+}
+```
+
+```
+==================
+WARNING: DATA RACE
+Write at 0x00c000100180 by goroutine 9:
+  runtime.mapaccess2_fast64()
+      /opt/homebrew/Cellar/go/1.20.6/libexec/src/runtime/map_fast64.go:53 +0x1cc
+  main.main.func1()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:32 +0x78
+  main.main.func2()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:33 +0x44
+
+Previous write at 0x00c000100180 by goroutine 6:
+  runtime.mapaccess2_fast64()
+      /opt/homebrew/Cellar/go/1.20.6/libexec/src/runtime/map_fast64.go:53 +0x1cc
+  main.main.func1()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:32 +0x78
+  main.main.func2()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:33 +0x44
+
+Goroutine 9 (running) created at:
+  main.main()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:30 +0x1cc
+
+Goroutine 6 (finished) created at:
+  main.main()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:30 +0x1cc
+==================
+==================
+WARNING: DATA RACE
+Write at 0x00c0000260f8 by main goroutine:
+  main.main()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:36 +0x30c
+
+Previous write at 0x00c0000260f8 by goroutine 8:
+  main.main.func1()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:32 +0x84
+  main.main.func2()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:33 +0x44
+
+Goroutine 8 (finished) created at:
+  main.main()
+      /Users/chenli/Documents/ComputerScience/CharryDS/main.go:30 +0x1cc
+==================
+fatal error: concurrent map writes
+
+goroutine 11 [running]:
+main.main.func1(0x5)
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:32 +0x7c
+created by main.main
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:30 +0x1d0
+
+goroutine 1 [semacquire]:
+sync.runtime_Semacquire(0xc000014108?)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/runtime/sema.go:62 +0x2c
+sync.(*WaitGroup).Wait(0xc000014100)
+        /opt/homebrew/Cellar/go/1.20.6/libexec/src/sync/waitgroup.go:116 +0x7c
+main.main()
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:37 +0x324
+
+goroutine 14 [runnable]:
+main.main.func1(0x8)
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:32 +0x7c
+created by main.main
+        /Users/chenli/Documents/ComputerScience/CharryDS/main.go:30 +0x1d0
+exit status 2
+```
+
+How to solve race condition? It's easy, just adding mutex.
+
+`Context` package is simple but useful. It is used to do some cancellation or timeout operations.
+
+Here is an example program:
+
+```go
+package main
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"strconv"
+	"time"
+)
+
+func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("Need a delay!")
+		return
+	}
+
+	delay, err := strconv.Atoi(os.Args[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Println("Delay:", delay)
+
+	f1(delay)
+	f2(delay)
+	f3(delay)
+}
+
+func f1(t int) {
+	c1 := context.Background()
+	c1, cancel := context.WithCancel(c1)
+	defer cancel()
+
+	go func() {
+		time.Sleep(4 * time.Second)
+		cancel()
+	}()
+
+	select {
+	case <-c1.Done():
+		fmt.Println("f1():", c1.Err())
+		return
+	case r := <-time.After(time.Duration(t) * time.Second):
+		fmt.Println("f1():", r)
+	}
+
+	return
+}
+
+func f2(t int) {
+	c2 := context.Background()
+	c2, cancel := context.WithTimeout(c2, time.Duration(t) * time.Second)
+	defer cancel()
+
+	go func() {
+		time.Sleep(4 * time.Second)
+		cancel()
+	}()
+
+	select {
+	case <-c2.Done():
+		fmt.Println("f2():", c2.Err())
+		return
+	case r := <-time.After(time.Duration(t) * time.Second):
+		fmt.Println("f2():", r)
+	}
+
+	return
+}
+
+func f3(t int) {
+	c3 := context.Background()
+	deadline := time.Now().Add(time.Duration(2 * t) * time.Second)
+	c3, cancel := context.WithDeadline(c3, deadline)
+	defer cancel()
+
+	go func() {
+		time.Sleep(4 * time.Second)
+		cancel()
+	}()
+
+	select {
+	case <-c3.Done():
+		fmt.Println("f3():", c3.Err())
+		return
+	case r := <-time.After(time.Duration(t) * time.Second):
+		fmt.Println("f3():", r)
+	}
+
+	return
+}
+```
+
+The result:
+
+```
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go 4
+Delay: 4
+f1(): 2023-08-30 00:12:07.227739 -0700 PDT m=+4.001223960
+f2(): 2023-08-30 00:12:11.229846 -0700 PDT m=+8.003349751
+f3(): 2023-08-30 00:12:15.231034 -0700 PDT m=+12.004555376
+
+(base) chenli@Chens-MacBook-Pro CharryDS % go run main.go 10
+Delay: 10
+f1(): context canceled
+f2(): context canceled
+f3(): context canceled
+```
